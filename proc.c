@@ -61,7 +61,6 @@ procdump(void)
   }
 }
 
-
 // Look in the process table for an UNUSED proc.
 // If found, change state to EMBRYO and return it.
 // Otherwise return 0.
@@ -81,6 +80,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+	p->priority = 0;
   release(&ptable.lock);
 
   // Allocate kernel stack if possible.
