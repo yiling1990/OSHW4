@@ -174,6 +174,7 @@ fork(void)
   }
   np->sz = proc->sz;
   np->parent = proc;
+  np->priority = proc->priority;
   *np->tf = *proc->tf;
 
   // Clear %eax so that fork returns 0 in the child.
@@ -438,3 +439,49 @@ kill(int pid)
   return -1;
 }
 
+//Increase the priorty of the current process by incr.
+int nice(int incr)
+{
+  int new_priority = proc->priority + incr;
+  if(new_priority < 0 || new_priority > 4)
+    return -1;
+  proc->priority = new_priority;
+  return 0;
+}
+
+//Get the priority of the proccess with pid.
+int getpriority(int pid)
+{
+  struct proc *p;
+  int priority;
+  
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid){
+      priority = p->priority;
+      release(&ptable.lock);
+      return priority;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
+}
+
+//Set the priority of the proccess with pid to new_priority.
+int setpriority(int pid, int new_priority)
+{
+  struct proc *p;
+  if(new_priority < 0 || new_priority > 4)
+    return -1;
+    
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid){
+      p->priority = new_priority;
+      release(&ptable.lock);
+      return 0;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
+}
