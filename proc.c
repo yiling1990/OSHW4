@@ -19,6 +19,13 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+struct queue *queue0;
+struct queue *queue1;
+struct queue *queue2;
+struct queue *queue3;
+struct queue *queue4;
+
+
 void
 pinit(void)
 {
