@@ -75,6 +75,20 @@ struct proc {
 	int priority;								 // Priority of the process
 };
 
+
+// node for a linked list
+struct node {
+  struct proc *proc;  // Open files
+  struct node *next;           // Current directory
+};
+
+
+// Per-process state
+struct queue {
+  struct node *first;  // Open files
+  struct node *last;           // Current directory
+};
+
 // Process memory is laid out contiguously, low addresses first:
 //   text
 //   original data and bss
