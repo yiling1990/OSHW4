@@ -58,21 +58,23 @@ struct context {
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
-struct proc {
-  uint sz;                     // Size of process memory (bytes)
-  pde_t* pgdir;                // Linear address of proc's pgdir
-  char *kstack;                // Bottom of kernel stack for this process
-  enum procstate state;        // Process state
-  volatile int pid;            // Process ID
-  struct proc *parent;         // Parent process
-  struct trapframe *tf;        // Trap frame for current syscall
-  struct context *context;     // Switch here to run process
-  void *chan;                  // If non-zero, sleeping on chan
-  int killed;                  // If non-zero, have been killed
-  struct file *ofile[NOFILE];  // Open files
-  struct inode *cwd;           // Current directory
-  char name[16];               // Process name (debugging)
-	int priority;								 // Priority of the process
+struct proc 
+{
+	uint sz;                     // Size of process memory (bytes)
+	pde_t* pgdir;                // Linear address of proc's pgdir
+	char *kstack;                // Bottom of kernel stack for this process
+	enum procstate state;        // Process state
+	volatile int pid;            // Process ID
+	struct proc *parent;         // Parent process
+	struct trapframe *tf;        // Trap frame for current syscall
+	struct context *context;     // Switch here to run process
+	void *chan;                  // If non-zero, sleeping on chan
+	int killed;                  // If non-zero, have been killed
+	struct file *ofile[NOFILE];  // Open files
+	struct inode *cwd;           // Current directory
+	char name[16];               // Process name (debugging)
+	int priority;				 // Priority of the process
+	int affinity;				 // CPU affinity fo the process
 };
 
 

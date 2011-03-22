@@ -23,11 +23,11 @@ int main(int argc, const char *argv[])
 		handle_error("Error: error checking for syscalls should be implemented.\n");
 	
 	if (setaffinity(-1, 0) != -1)
-		handle_error("Error: error checking for syscalls should be implemented.\n");
+		handle_error("Error: error checking for syscalls should be implemented1.\n");
 	if (setaffinity(getpid(), -1) != -1)
-		handle_error("Error: error checking for syscalls should be implemented.\n");
+		handle_error("Error: error checking for syscalls should be implemented2.\n");
 	if (setaffinity(getpid(), 3) != -1)
-		handle_error("Error: error checking for syscalls should be implemented.\n");
+		handle_error("Error: error checking for syscalls should be implemented3.\n");
 	if (getaffinity(-1) != -1)
 		handle_error("Error: error checking for syscalls should be implemented.\n");
 

@@ -124,13 +124,22 @@ sys_setpriority(void)
 int
 sys_getaffinity(void)
 {
-	// To be implemented.
-	return 0;
+	int pid;
+
+	if(argint(0, &pid) < 0)
+	  return -1;
+	return getaffinity(pid);
 }
 
 int
 sys_setaffinity(void)
 {
-	// To be implemented.
-	return 0;
+	int pid;
+	int new_affinity;
+
+	if(argint(0, &pid) < 0)
+	  return -1;
+	if(argint(1, &new_affinity) < 0)
+	  return -1;
+	return setaffinity(pid, new_affinity);
 }

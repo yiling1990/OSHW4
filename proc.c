@@ -74,43 +74,46 @@ procdump(void)
 static struct proc*
 allocproc(void)
 {
-  struct proc *p;
-  char *sp;
+	struct proc *p;
+	char *sp;
 
-  acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == UNUSED)
-      goto found;
-  release(&ptable.lock);
-  return 0;
+	acquire(&ptable.lock);
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+		if(p->state == UNUSED)
+			goto found;
+	release(&ptable.lock);
+	return 0;
 
-found:
-  p->state = EMBRYO;
-  p->pid = nextpid++;
-	p->priority = 0;
-  release(&ptable.lock);
+	found:
+		p->state = EMBRYO;
+		p->pid = nextpid++;
+		release(&ptable.lock);
 
-  // Allocate kernel stack if possible.
-  if((p->kstack = kalloc()) == 0){
-    p->state = UNUSED;
-    return 0;
-  }
-  sp = p->kstack + KSTACKSIZE;
-  
-  // Leave room for trap frame.
-  sp -= sizeof *p->tf;
-  p->tf = (struct trapframe*)sp;
-  
-  // Set up new context to start executing at forkret,
-  // which returns to trapret (see below).
-  sp -= 4;
-  *(uint*)sp = (uint)trapret;
+		p->priority = 0;
+		p->affinity = -1;
 
-  sp -= sizeof *p->context;
-  p->context = (struct context*)sp;
-  memset(p->context, 0, sizeof *p->context);
-  p->context->eip = (uint)forkret;
-  return p;
+		// Allocate kernel stack if possible.
+		if((p->kstack = kalloc()) == 0)
+		{
+			p->state = UNUSED;
+			return 0;
+		}
+		sp = p->kstack + KSTACKSIZE;
+
+		// Leave room for trap frame.
+		sp -= sizeof *p->tf;
+		p->tf = (struct trapframe*)sp;
+
+		// Set up new context to start executing at forkret,
+		// which returns to trapret (see below).
+		sp -= 4;
+		*(uint*)sp = (uint)trapret;
+
+		sp -= sizeof *p->context;
+		p->context = (struct context*)sp;
+		memset(p->context, 0, sizeof *p->context);
+		p->context->eip = (uint)forkret;
+		return p;
 }
 
 // Set up first user process.
@@ -165,37 +168,39 @@ growproc(int n)
 int
 fork(void)
 {
-  int i, pid;
-  struct proc *np;
+	int i, pid;
+	struct proc *np;
 
-  // Allocate process.
-  if((np = allocproc()) == 0)
-    return -1;
+	// Allocate process.
+	if((np = allocproc()) == 0)
+	return -1;
 
-  // Copy process state from p.
-  if(!(np->pgdir = copyuvm(proc->pgdir, proc->sz))){
-    kfree(np->kstack);
-    np->kstack = 0;
-    np->state = UNUSED;
-    return -1;
-  }
-  np->sz = proc->sz;
-  np->parent = proc;
-  np->priority = proc->priority;
-  *np->tf = *proc->tf;
+	// Copy process state from p.
+	if(!(np->pgdir = copyuvm(proc->pgdir, proc->sz)))
+	{
+		kfree(np->kstack);
+		np->kstack = 0;
+		np->state = UNUSED;
+		return -1;
+	}
+	np->sz = proc->sz;
+	np->parent = proc;
+	np->priority = proc->priority;
+	np->affinity = proc->affinity;
+	*np->tf = *proc->tf;
 
-  // Clear %eax so that fork returns 0 in the child.
-  np->tf->eax = 0;
+	// Clear %eax so that fork returns 0 in the child.
+	np->tf->eax = 0;
 
-  for(i = 0; i < NOFILE; i++)
-    if(proc->ofile[i])
-      np->ofile[i] = filedup(proc->ofile[i]);
-  np->cwd = idup(proc->cwd);
- 
-  pid = np->pid;
-  np->state = RUNNABLE;
-  safestrcpy(np->name, proc->name, sizeof(proc->name));
-  return pid;
+	for(i = 0; i < NOFILE; i++)
+		if(proc->ofile[i])
+			np->ofile[i] = filedup(proc->ofile[i]);
+	np->cwd = idup(proc->cwd);
+
+	pid = np->pid;
+	np->state = RUNNABLE;
+	safestrcpy(np->name, proc->name, sizeof(proc->name));
+	return pid;
 }
 
 // Exit the current process.  Does not return.
@@ -296,14 +301,16 @@ scheduler(void)
 {
   struct proc *p;
 
-  for(;;){
+  for(;;)
+  {
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+	{
+      if(p->state != RUNNABLE || (p->affinity != -1 && p->affinity != cpu->id))
         continue;
 
       // Switch to chosen process.  It is the process's job
@@ -501,4 +508,48 @@ setpriority(int pid, int new_priority)
 	}
 	release(&ptable.lock);
 	return -1;
+}
+
+// Gets the cpu affinity of the process with pid
+int
+getaffinity(int pid)
+{
+	struct proc *p;
+
+	acquire(&ptable.lock);
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+	{
+		if(p->pid == pid)
+		{
+			int affin = p->affinity;
+			release(&ptable.lock);
+			return affin;
+		}
+	}
+	release(&ptable.lock);
+	return -1;
+}
+
+// Sets the cpu affinity of the process with pid to new_affinity
+int
+setaffinity(int pid, int new_affinity)
+{
+	struct proc *p;
+
+	if (new_affinity > ncpu-1 || new_affinity < 0)
+		return -1;
+
+	acquire(&ptable.lock);
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+	{
+		if(p->pid == pid)
+		{
+			p->affinity = new_affinity;
+			release(&ptable.lock);
+			return 0;
+		}
+	}
+	release(&ptable.lock);
+	return -1;
+
 }
