@@ -105,7 +105,6 @@ sys_getpriority(void)
 int
 sys_setpriority(void)
 {
-	// To be implemented.
 	return -1;
 }
 
