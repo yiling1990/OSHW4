@@ -438,3 +438,59 @@ kill(int pid)
   return -1;
 }
 
+// Increases or decreases the priority of the current process by incr
+int
+nice (int incr)
+{
+	int curprior = proc->priority;
+	int newprior = curprior + incr;
+
+	if (newprior  > 4 || newprior < 0)
+		return -1;
+
+	proc->priority = newprior;
+	return 0;
+}
+
+// Gets the priority of the process with pid
+int
+getpriority(int pid)
+{
+	struct proc *p;
+
+	acquire(&ptable.lock);
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+	{
+		if(p->pid == pid)
+		{
+			int prior = p->priority;
+			release(&ptable.lock);
+			return prior;
+		}
+	}
+	release(&ptable.lock);
+	return -1;
+}
+
+// Sets the priority of process with pid to new_priority
+int
+setpriority(int pid, int new_priority)
+{
+	struct proc *p;
+
+	if (new_priority > 4 || new_priority < 0)
+		return -1;
+
+	acquire(&ptable.lock);
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+	{
+		if(p->pid == pid)
+		{
+			p->priority = new_priority;
+			release(&ptable.lock);
+			return 0;
+		}
+	}
+	release(&ptable.lock);
+	return -1;
+}
