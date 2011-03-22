@@ -91,21 +91,34 @@ sys_uptime(void)
 int
 sys_nice(void)
 {
-	// To be implemented.
-	return 0;
+	int incr;
+
+	if(argint(0, &incr) < 0)
+	  return -1;
+	return nice(incr);
 }
 
 int
 sys_getpriority(void)
 {
-	// To be implemented.
-	return 0;
+	int pid;
+
+	if(argint(0, &pid) < 0)
+	  return -1;
+	return getpriority(pid);
 }
 
 int
 sys_setpriority(void)
 {
-	return -1;
+	int pid;
+	int new_priority;
+
+	if(argint(0, &pid) < 0)
+	  return -1;
+	if(argint(1, &new_priority) < 0)
+	  return -1;
+	return setpriority(pid, new_priority);
 }
 
 int
