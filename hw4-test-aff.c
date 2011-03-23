@@ -40,27 +40,17 @@ int main(int argc, const char *argv[])
 	if (getaffinity(getpid()) != cpuid)
 		handle_error("getaffinity failed or inconsistent.\n");
 
-	for (i = 0; i < NUM_CHILD; i++) 
-	{
+	for (i = 0; i < NUM_CHILD; i++) {
 		pid = fork();
-		if (pid == -1) 
-		{
+		if (pid == -1) {
 			handle_error("fork failed\n");
-		} 
-		else if (pid == 0) 
-		{ /* child */
-			/*
-			printf(stdout, "my pid: %d, my affinity: %d\n", 
-				getpid(), getaffinity(getpid()));
-			*/
+		} else if (pid == 0) { /* child */
+			//printf(stdout, "my pid: %d, my affinity: %d\n", 
+			//	getpid(), getaffinity(getpid()));
 			break;
-		}
-		else 
-		{ /* parent */
-			//printf(stdout, "hello3\n");
+		} else { /* parent */
 			pids_prio[pid] = i % MAX_PRIO;
-			if (setpriority(pid, i % MAX_PRIO) < 0) 
-			{
+			if (setpriority(pid, i % MAX_PRIO) < 0) {
 				printf(stdout, 
 				       "%d setpriority failed, prio: %d\n", 
 				       getpid(), getpriority(getpid()));
@@ -68,8 +58,7 @@ int main(int argc, const char *argv[])
 			}
 		}
 	}
-	if (!pid) 
-	{ /* children go here */
+	if (!pid) { /* children go here */
 		sleep(1);
 		lengthy(value, N, 0);
 		exit();
@@ -93,7 +82,6 @@ int main(int argc, const char *argv[])
 			handle_error("Scheduling error: the expected exit time of children is wrong.");
 		}
 	}
-
 	
 
 	printf(stdout, "hw4-test-aff succeeded\n");

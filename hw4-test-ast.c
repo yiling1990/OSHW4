@@ -32,6 +32,7 @@ int main(int argc, const char *argv[])
 	if (getaffinity(getpid()) != cpuid)
 		handle_error("getaffinity failed or inconsistent.\n");
 
+	printf(stdout, "hello\n");
 	/* All children will be distributed 
 	 * to the first four queues.
 	 * One child will be in the last queue,
@@ -39,6 +40,7 @@ int main(int argc, const char *argv[])
 	 */
 	for (i = 0; i < NUM_CHILD; i++) {
 		pid = fork();
+		printf(stdout, "hello2\n");
 		if (pid == -1) {
 			handle_error("fork failed\n");
 		} else if (pid == 0) { /* child */
@@ -53,24 +55,32 @@ int main(int argc, const char *argv[])
 			}
 		}
 	}
+		printf(stdout, "hello3\n");
 	if (!pid) { /* children go here */
 		sleep(1);
 		lengthy(value, N, 0);
 		exit();
 	}
 
+		printf(stdout, "hello4\n");
 	/* parent goes here */
 	for (i = 0; i < NUM_CHILD; i++) {
 		pids[i] = wait();  
 		/* pids[] records the order of finished children */
 	}
+		printf(stdout, "hello5\n");
 	for (i = 0; i < NUM_CHILD; i++) {
 		printf(stdout, "child %d exits: prio: %d\n", 
 		       pids[i], pids_prio[pids[i]] );
 	}
 
-	if (pids_prio[pids[NUM_CHILD-1]] != MAX_PRIO - 1)
+		printf(stdout, "hello6\n");
+	if (pids_prio[pids[NUM_CHILD-1]] != MAX_PRIO - 1){
+	  printf(stdout,"Problem: %d",pids[NUM_CHILD-1]);
+	  printf(stdout,"Target val: %d",MAX_PRIO-1);
+	  printf(stdout,"Val: %d",pids_prio[pids[NUM_CHILD-1]]);
 		handle_error("Scheduling error: the process in the last queue does not exit last.");
+	}
 	
 
 	printf(stdout, "hw4-test-ast succeeded\n");

@@ -91,6 +91,7 @@ sys_uptime(void)
 int
 sys_nice(void)
 {
+	// To be implemented.
 	int incr;
 
 	if(argint(0, &incr) < 0)
@@ -101,6 +102,7 @@ sys_nice(void)
 int
 sys_getpriority(void)
 {
+	// To be implemented.
 	int pid;
 
 	if(argint(0, &pid) < 0)
@@ -111,6 +113,7 @@ sys_getpriority(void)
 int
 sys_setpriority(void)
 {
+	// To be implemented.
 	int pid;
 	int new_priority;
 
@@ -125,7 +128,7 @@ int
 sys_getaffinity(void)
 {
 	int pid;
-
+	
 	if(argint(0, &pid) < 0)
 	  return -1;
 	return getaffinity(pid);
@@ -136,7 +139,7 @@ sys_setaffinity(void)
 {
 	int pid;
 	int new_affinity;
-
+	
 	if(argint(0, &pid) < 0)
 	  return -1;
 	if(argint(1, &new_affinity) < 0)

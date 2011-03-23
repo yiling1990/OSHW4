@@ -30,13 +30,11 @@ pushProc(struct proc *p)
   n->proc = p;
   n->next = (void *)0;
   struct queue *q = queues[p->priority];
-  if(q->first == (void *)0)
-  {
+  if(q->first == (void *)0){
     q->first = n;
     q->last = n;
   }
-  else
-  {
+  else{
     q->last->next = n;
     q->last = n;
   }
@@ -125,46 +123,44 @@ procdump(void)
 static struct proc*
 allocproc(void)
 {
-	struct proc *p;
-	char *sp;
+  struct proc *p;
+  char *sp;
 
-	acquire(&ptable.lock);
-	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-		if(p->state == UNUSED)
-			goto found;
-	release(&ptable.lock);
-	return 0;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    if(p->state == UNUSED)
+      goto found;
+  release(&ptable.lock);
+  return 0;
 
-	found:
-		p->state = EMBRYO;
-		p->pid = nextpid++;
-		release(&ptable.lock);
+found:
+  p->state = EMBRYO;
+  p->pid = nextpid++;
+	p->priority = 0;
+	p->affinity = -1;
+  release(&ptable.lock);
 
-		p->priority = 0;
-		p->affinity = -1;
+  // Allocate kernel stack if possible.
+  if((p->kstack = kalloc()) == 0){
+    p->state = UNUSED;
+    return 0;
+  }
+  sp = p->kstack + KSTACKSIZE;
+  
+  // Leave room for trap frame.
+  sp -= sizeof *p->tf;
+  p->tf = (struct trapframe*)sp;
+  
+  // Set up new context to start executing at forkret,
+  // which returns to trapret (see below).
+  sp -= 4;
+  *(uint*)sp = (uint)trapret;
 
-		// Allocate kernel stack if possible.
-		if((p->kstack = kalloc()) == 0)
-		{
-			p->state = UNUSED;
-			return 0;
-		}
-		sp = p->kstack + KSTACKSIZE;
-
-		// Leave room for trap frame.
-		sp -= sizeof *p->tf;
-		p->tf = (struct trapframe*)sp;
-
-		// Set up new context to start executing at forkret,
-		// which returns to trapret (see below).
-		sp -= 4;
-		*(uint*)sp = (uint)trapret;
-
-		sp -= sizeof *p->context;
-		p->context = (struct context*)sp;
-		memset(p->context, 0, sizeof *p->context);
-		p->context->eip = (uint)forkret;
-		return p;
+  sp -= sizeof *p->context;
+  p->context = (struct context*)sp;
+  memset(p->context, 0, sizeof *p->context);
+  p->context->eip = (uint)forkret;
+  return p;
 }
 
 // Set up first user process.
@@ -174,7 +170,6 @@ userinit(void)
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
   
-  initQueues();
   p = allocproc();
   initproc = p;
   if(!(p->pgdir = setupkvm()))
@@ -194,6 +189,7 @@ userinit(void)
   p->cwd = namei("/");
   p->priority = 0;
   p->state = RUNNABLE;
+  initQueues();
   pushProc(p);
 }
 
@@ -221,39 +217,39 @@ growproc(int n)
 int
 fork(void)
 {
-	int i, pid;
-	struct proc *np;
+  int i, pid;
+  struct proc *np;
 
-	// Allocate process.
-	if((np = allocproc()) == 0)
-	return -1;
+  // Allocate process.
+  if((np = allocproc()) == 0)
+    return -1;
 
-	// Copy process state from p.
-	if(!(np->pgdir = copyuvm(proc->pgdir, proc->sz)))
-	{
-		kfree(np->kstack);
-		np->kstack = 0;
-		np->state = UNUSED;
-		return -1;
-	}
-	np->sz = proc->sz;
-	np->parent = proc;
-	np->priority = proc->priority;
-	np->affinity = proc->affinity;
-	*np->tf = *proc->tf;
+  // Copy process state from p.
+  if(!(np->pgdir = copyuvm(proc->pgdir, proc->sz))){
+    kfree(np->kstack);
+    np->kstack = 0;
+    np->state = UNUSED;
+    return -1;
+  }
+  np->sz = proc->sz;
+  np->parent = proc;
+  np->priority = proc->priority;
+  np->affinity = proc->affinity;
+  *np->tf = *proc->tf;
 
-	// Clear %eax so that fork returns 0 in the child.
-	np->tf->eax = 0;
+  // Clear %eax so that fork returns 0 in the child.
+  np->tf->eax = 0;
 
-	for(i = 0; i < NOFILE; i++)
-		if(proc->ofile[i])
-			np->ofile[i] = filedup(proc->ofile[i]);
-	np->cwd = idup(proc->cwd);
-
-	pid = np->pid;
-	np->state = RUNNABLE;
-	safestrcpy(np->name, proc->name, sizeof(proc->name));
-	return pid;
+  for(i = 0; i < NOFILE; i++)
+    if(proc->ofile[i])
+      np->ofile[i] = filedup(proc->ofile[i]);
+  np->cwd = idup(proc->cwd);
+ 
+  pid = np->pid;
+  np->state = RUNNABLE;
+  pushProc(np);
+  safestrcpy(np->name, proc->name, sizeof(proc->name));
+  return pid;
 }
 
 // Exit the current process.  Does not return.
@@ -377,14 +373,39 @@ scheduler(void)
 
     // Get process off queue.
     acquire(&ptable.lock);
+
 /*
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-	{
-      if(p->state != RUNNABLE || (p->affinity != -1 && p->affinity != cpu->id))
-        continue;
+    {
+      //if (p->state != RUNNABLE || (p->affinity != -1 && p->affinity != cpu->id))
+      //continue;
+      if (p->state == RUNNABLE)
+      {
+      int i;
+      int j = 0;
+      for(i=0; i<5; i++)
+      {
+        struct queue *q = queues[i];
+        struct node* n = q->first;
+        
+        while(n != (void*)0)
+        {
+          if (n->proc == p)
+          {
+            j = 1;
+            break;
+          }
+        }
+       }
+
+       if(j == 0)
+       	cprintf("j: %d\n", j);
+        
+      }
+    }
 */
-    if(((p = popProc()) != (void *)0) && (p->affinity == -1 || p->affinity == cpu->id))
-	{
+        
+      if(((p = popProc()) != (void *)0)  ){
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -531,103 +552,90 @@ kill(int pid)
   return -1;
 }
 
-// Increases or decreases the priority of the current process by incr
-int
-nice (int incr)
+//Increase the priorty of the current process by incr.
+int nice(int incr)
 {
-	int curprior = proc->priority;
-	int newprior = curprior + incr;
-
-	if (newprior  > 4 || newprior < 0)
-		return -1;
-
-	proc->priority = newprior;
-	return 0;
+  int new_priority = proc->priority + incr;
+  if(new_priority < 0 || new_priority > 4)
+    return -1;
+  proc->priority = new_priority;
+  return 0;
 }
 
-// Gets the priority of the process with pid
-int
-getpriority(int pid)
+//Get the priority of the proccess with pid.
+int getpriority(int pid)
 {
-	struct proc *p;
-
-	acquire(&ptable.lock);
-	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-	{
-		if(p->pid == pid)
-		{
-			int prior = p->priority;
-			release(&ptable.lock);
-			return prior;
-		}
-	}
-	release(&ptable.lock);
-	return -1;
+  struct proc *p;
+  int priority;
+  
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid){
+      priority = p->priority;
+      release(&ptable.lock);
+      return priority;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
 }
 
-// Sets the priority of process with pid to new_priority
-int
-setpriority(int pid, int new_priority)
+//Set the priority of the proccess with pid to new_priority.
+int setpriority(int pid, int new_priority)
 {
-	struct proc *p;
-
-	if (new_priority > 4 || new_priority < 0)
-		return -1;
-
-	acquire(&ptable.lock);
-	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-	{
-		if(p->pid == pid)
-		{
-			p->priority = new_priority;
-			release(&ptable.lock);
-			return 0;
-		}
-	}
-	release(&ptable.lock);
-	return -1;
+  struct proc *p;
+  if(new_priority < 0 || new_priority > 4)
+    return -1;
+    
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid){
+      p->priority = new_priority;
+      release(&ptable.lock);
+      return 0;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
 }
 
-// Gets the cpu affinity of the process with pid
 int
 getaffinity(int pid)
 {
-	struct proc *p;
-
-	acquire(&ptable.lock);
-	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-	{
-		if(p->pid == pid)
-		{
-			int affin = p->affinity;
-			release(&ptable.lock);
-			return affin;
-		}
-	}
-	release(&ptable.lock);
-	return -1;
-}
-
-// Sets the cpu affinity of the process with pid to new_affinity
-int
-setaffinity(int pid, int new_affinity)
-{
-	struct proc *p;
-
-	if (new_affinity > ncpu-1 || new_affinity < 0)
-		return -1;
-
-	acquire(&ptable.lock);
-	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-	{
-		if(p->pid == pid)
-		{
-			p->affinity = new_affinity;
-			release(&ptable.lock);
-			return 0;
-		}
-	}
-	release(&ptable.lock);
-	return -1;
-
+  struct proc *p;
+  
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if(p->pid == pid)
+    {
+      int affin = p->affinity;
+      release(&ptable.lock);
+      return affin;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
+ }
+ 
+ int
+ setaffinity(int pid, int new_affinity)
+ {
+  struct proc *p;
+  
+  if(new_affinity > ncpu-1 || new_affinity < 0)
+    return -1;
+  
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if(p->pid == pid)
+    {
+      p->affinity = new_affinity;
+      release(&ptable.lock);
+      return 0;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
 }
