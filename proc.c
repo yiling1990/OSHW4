@@ -342,12 +342,13 @@ popProc(void){
   for(i=0; i<5; i++){
     struct queue *q = queues[i];
     if(q->first != (void *)0){
-      cprintf("bad if followed by 111s\n");
+      struct proc *p = q->first->proc;
+      struct node *n = q->first;
       q->first = q->first->next;
-      return q->first->proc;
+      kfree((char *)n);
+      return p;
     }
   }
-  cprintf("null 000000\n");
   return (void *)0;
 }
 
@@ -381,11 +382,10 @@ scheduler(void)
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
-      pushProc(proc);
+      //pushProc(proc);
       proc = 0;
     }
     release(&ptable.lock);
-    cprintf("null 111111\n");
 
   }
 }
