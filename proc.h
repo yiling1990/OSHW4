@@ -78,17 +78,15 @@ struct proc
 };
 
 
-// node for a linked list
 struct node {
-  struct proc *proc;  // Open files
-  struct node *next;           // Current directory
+  struct proc *proc;
+  struct node *next;
 };
 
 
-// Per-process state
 struct queue {
-  struct node *first;  // Open files
-  struct node *last;           // Current directory
+  struct node *first;
+  struct node *last;
 };
 
 // Process memory is laid out contiguously, low addresses first:

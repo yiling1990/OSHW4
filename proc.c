@@ -19,12 +19,63 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
-struct queue *queue0;
-struct queue *queue1;
-struct queue *queue2;
-struct queue *queue3;
-struct queue *queue4;
+struct queue *queues[5];
 
+//Pushes proc p onto the appropriate queue, based on its priority, so that it can be run by the scheduler
+void
+pushProc(struct proc *p)
+{
+  struct node *n;
+  n = (struct node*)kalloc();
+  n->proc = p;
+  n->next = (void *)0;
+  struct queue *q = queues[p->priority];
+  if(q->first == (void *)0)
+  {
+    q->first = n;
+    q->last = n;
+  }
+  else
+  {
+    q->last->next = n;
+    q->last = n;
+  }
+}
+
+void
+initQueues(void)
+{
+  struct queue *queue0;
+  queue0 = (struct queue*)kalloc();
+  queue0->first = (void *)0;
+  queue0->last = (void *)0;
+  
+  struct queue *queue1;
+  queue1 = (struct queue*)kalloc();
+  queue1->first = (void *)0;
+  queue1->last = (void *)0;
+  
+  struct queue *queue2;
+  queue2 = (struct queue*)kalloc();
+  queue2->first = (void *)0;
+  queue2->last = (void *)0;
+  
+  struct queue *queue3;
+  queue3 = (struct queue*)kalloc();
+  queue3->first = (void *)0;
+  queue3->last = (void *)0;
+  
+  struct queue *queue4;
+  queue4 = (struct queue*)kalloc();
+  queue4->first = (void *)0;
+  queue4->last = (void *)0;
+  
+  queues[0] = queue0;
+  queues[1] = queue1;
+  queues[2] = queue2;
+  queues[3] = queue3;
+  queues[4] = queue4;
+}
 
 void
 pinit(void)
@@ -123,6 +174,7 @@ userinit(void)
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
   
+  initQueues();
   p = allocproc();
   initproc = p;
   if(!(p->pgdir = setupkvm()))
@@ -140,8 +192,9 @@ userinit(void)
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
-
+  p->priority = 0;
   p->state = RUNNABLE;
+  pushProc(p);
 }
 
 // Grow current process's memory by n bytes.
@@ -289,6 +342,25 @@ wait(void)
   }
 }
 
+struct proc *
+popProc(void)
+{
+	int i;
+	for(i=0; i<5; i++)
+	{
+    	struct queue *q = queues[i];
+    	if(q->first != (void *)0)
+		{
+    		cprintf("bad if followed by 111s\n");
+			struct proc *p = q->first->proc;
+      		q->first = q->first->next;
+     		return p;
+    	}
+	}
+	cprintf("null 000000\n");
+	return (void *)0;
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -306,27 +378,32 @@ scheduler(void)
     // Enable interrupts on this processor.
     sti();
 
-    // Loop over process table looking for process to run.
+    // Get process off queue.
     acquire(&ptable.lock);
+/*
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
 	{
       if(p->state != RUNNABLE || (p->affinity != -1 && p->affinity != cpu->id))
         continue;
+*/
+    if((p = popProc()) != (void *)0)
+	{
+		 // Switch to chosen process.  It is the process's job
+		 // to release ptable.lock and then reacquire it
+		 // before jumping back to us.
+		 proc = p;
+		 switchuvm(p);
+		 p->state = RUNNING;
+		 swtch(&cpu->scheduler, proc->context);
+		 switchkvm();
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      swtch(&cpu->scheduler, proc->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      proc = 0;
+	 	 // Process is done running for now.
+		 // It should have changed its p->state before coming back.
+		 pushProc(proc);
+		 proc = 0;
     }
     release(&ptable.lock);
+    cprintf("null 111111\n");
 
   }
 }
@@ -357,6 +434,7 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
+  pushProc(proc);
   sched();
   release(&ptable.lock);
 }
@@ -417,8 +495,10 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+    if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
+      pushProc(p);
+    }
 }
 
 // Wake up all processes sleeping on chan.
@@ -443,8 +523,10 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING){
         p->state = RUNNABLE;
+        pushProc(p);
+      }
       release(&ptable.lock);
       return 0;
     }
