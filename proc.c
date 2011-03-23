@@ -343,22 +343,19 @@ wait(void)
 }
 
 struct proc *
-popProc(void)
-{
-	int i;
-	for(i=0; i<5; i++)
-	{
-    	struct queue *q = queues[i];
-    	if(q->first != (void *)0)
-		{
-    		cprintf("bad if followed by 111s\n");
-			struct proc *p = q->first->proc;
-      		q->first = q->first->next;
-     		return p;
-    	}
-	}
-	cprintf("null 000000\n");
-	return (void *)0;
+popProc(void){
+  int i;
+  for(i=0; i<5; i++){
+    struct queue *q = queues[i];
+    if(q->first != (void *)0){
+      struct proc *p = q->first->proc;
+      struct node *n = q->first;
+      q->first = q->first->next;
+      kfree((char *)n);
+      return p;
+    }
+  }
+  return (void *)0;
 }
 
 // Per-CPU process scheduler.
@@ -386,24 +383,23 @@ scheduler(void)
       if(p->state != RUNNABLE || (p->affinity != -1 && p->affinity != cpu->id))
         continue;
 */
-    if((p = popProc()) != (void *)0)
+    if(((p = popProc()) != (void *)0) && (p->affinity == -1 || p->affinity == cpu->id))
 	{
-		 // Switch to chosen process.  It is the process's job
-		 // to release ptable.lock and then reacquire it
-		 // before jumping back to us.
-		 proc = p;
-		 switchuvm(p);
-		 p->state = RUNNING;
-		 swtch(&cpu->scheduler, proc->context);
-		 switchkvm();
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
+      swtch(&cpu->scheduler, proc->context);
+      switchkvm();
 
-	 	 // Process is done running for now.
-		 // It should have changed its p->state before coming back.
-		 pushProc(proc);
-		 proc = 0;
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      //pushProc(proc);
+      proc = 0;
     }
     release(&ptable.lock);
-    cprintf("null 111111\n");
 
   }
 }
